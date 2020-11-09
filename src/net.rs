@@ -30,11 +30,32 @@ fn get_ethertype(ethertype: &[u8]) -> EtherType {
     }
 }
 
+struct MacAddress<'a> {
+    mac: &'a [u8; 6],
+}
+
+impl MacAddress<'_> {
+    fn from_slice(mac: &[u8]) -> MacAddress {
+        MacAddress {
+            mac: mac.try_into().unwrap(),
+        }
+    }
+}
+
+impl fmt::Debug for MacAddress<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+            self.mac[0], self.mac[1], self.mac[2],
+            self.mac[3], self.mac[4], self.mac[5]
+        ))
+    }
+}
 
 #[derive(Debug)]
 struct EthernetFrame<'a> {
-    source_mac: &'a [u8; 6],
-    destination_mac: &'a [u8; 6],
+    source_mac: MacAddress<'a>,
+    destination_mac: MacAddress<'a>,
     ethertype: EtherType,
 }
 
@@ -45,8 +66,8 @@ impl EthernetFrame<'_> {
         let (ethertype, payload) = rest.split_at(2);
 
         EthernetFrame {
-            source_mac: source_mac.try_into().unwrap(),
-            destination_mac: destination_mac.try_into().unwrap(),
+            source_mac: MacAddress::from_slice(source_mac),
+            destination_mac: MacAddress::from_slice(destination_mac),
             ethertype: get_ethertype(ethertype),
         }
     }
