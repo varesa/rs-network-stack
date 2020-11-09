@@ -1,5 +1,6 @@
 mod error;
 mod tap;
+mod net;
 
 use std::{env};
 
@@ -28,11 +29,15 @@ fn main() {
     println!("Using bridge {}", &args.bridge_name);
 
     let iface = tap::setup(&args.bridge_name);
-    let mut buffer = [0 as u8; 1500];
+
+    const MTU: usize = 1500;
+    const TAP_HEADER: usize = 4;
+
+    let mut buffer = [0 as u8; MTU + TAP_HEADER];
 
     loop { 
         //thread::sleep(time::Duration::from_millis(100));
         let size = iface.recv(&mut buffer).unwrap();
-        println!("Received {} bytes", size);
+        net::update(&buffer[TAP_HEADER .. TAP_HEADER+size]);
     }
 }
