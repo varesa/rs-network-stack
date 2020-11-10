@@ -4,8 +4,8 @@ use byteorder::{ReadBytesExt, BigEndian};
 use std::convert::{TryFrom,TryInto};
 use std::fmt;
 
-const MY_MAC: [u8; 6] = [0x02, 0xDE, 0xAD, 0x00, 0xBE, 0xEF];
-const MY_IP: [u8; 4] = [169, 254, 0, 2];
+const MY_MAC_BYTES: &[u8] = &[0x02, 0xDE, 0xAD, 0x00, 0xBE, 0xEF];
+const MY_IP_BYTES: &[u8] = &[169, 254, 0, 2];
 
 #[derive(Debug)]
 enum HardwareAddress<'a> {
@@ -13,6 +13,7 @@ enum HardwareAddress<'a> {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 enum ProtocolAddress<'a> {
     IPv4(Ipv4Address<'a>),
 }
@@ -31,6 +32,7 @@ struct ArpPacket<'a> {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 enum ArpOperation {
     REQUEST,
     REPLY,
@@ -87,11 +89,13 @@ enum EtherType<'a> {
 }
 
 // Custom fmt::Debug
+#[derive(PartialEq)]
 struct MacAddress<'a> {
     mac: &'a [u8; 6],
 }
 
 // Custom fmt::Debug
+#[derive(PartialEq)]
 struct Ipv4Address<'a> {
     ip: &'a [u8; 4],
 }
@@ -162,5 +166,12 @@ impl EthernetFrame<'_> {
 pub fn update(frame: &[u8]) -> () {
     println!("Received {} bytes", frame.len());
     let frame = EthernetFrame::from_slice(frame);
+    if let EtherType::ARP(arp_packet) = &frame.payload {
+        if ArpOperation::REQUEST == arp_packet.oper {
+            if ProtocolAddress::IPv4(MY_IP_BYTES.into()) == arp_packet.tpa {
+                println!("Hey, it's us!");
+            }
+        }
+    }
     println!("{:#x?}", frame);
 }
