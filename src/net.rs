@@ -4,6 +4,9 @@ use byteorder::{ReadBytesExt, BigEndian};
 use std::convert::{TryFrom,TryInto};
 use std::fmt;
 
+const MY_MAC: [u8; 6] = [0x02, 0xDE, 0xAD, 0x00, 0xBE, 0xEF];
+const MY_IP: [u8; 4] = [169, 254, 0, 2];
+
 #[derive(Debug)]
 enum HardwareAddress<'a> {
     MAC(MacAddress<'a>),
@@ -20,11 +23,18 @@ struct ArpPacket<'a> {
     ptype: u16,
     hlen: u8,
     plen: u8,
-    oper: u16,
+    oper: ArpOperation,
     sha: HardwareAddress<'a>,
     spa: ProtocolAddress<'a>,
     tha: HardwareAddress<'a>,
     tpa: ProtocolAddress<'a>,
+}
+
+#[derive(Debug)]
+enum ArpOperation {
+    REQUEST,
+    REPLY,
+    INVALID,
 }
 
 impl<'a> From <&'a [u8]> for ArpPacket<'a> {
@@ -49,7 +59,11 @@ impl<'a> From <&'a [u8]> for ArpPacket<'a> {
             htype: htype_bytes.clone().read_u16::<BigEndian>().unwrap(),
             ptype: ptype_bytes.clone().read_u16::<BigEndian>().unwrap(),
             hlen: hlen_bytes[0], plen: plen_bytes[0],
-            oper: oper_bytes.clone().read_u16::<BigEndian>().unwrap(),
+            oper: match oper_bytes {
+                [0, 1] => ArpOperation::REQUEST,
+                [0, 2] => ArpOperation::REPLY,
+                _ => ArpOperation::INVALID,
+            },
             sha: HardwareAddress::MAC(sha_bytes.into()),
             spa: ProtocolAddress::IPv4(spa_bytes.into()),
             tha: HardwareAddress::MAC(tha_bytes.into()),
@@ -81,14 +95,6 @@ struct MacAddress<'a> {
 struct Ipv4Address<'a> {
     ip: &'a [u8; 4],
 }
-
-/*impl MacAddress<'_> {
-    fn from_slice(mac: &[u8]) -> MacAddress {
-        MacAddress {
-            mac: mac.try_into().unwrap(),
-        }
-    }
-}*/
 
 impl<'a> From<&'a [u8]> for MacAddress<'a> {
     fn from(slice: &'a [u8]) -> MacAddress {
