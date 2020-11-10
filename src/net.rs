@@ -166,6 +166,7 @@ impl EthernetFrame<'_> {
 pub fn update(frame: &[u8]) -> () {
     println!("Received {} bytes", frame.len());
     let frame = EthernetFrame::from_slice(frame);
+    println!("{:#x?}", &frame);
     if let EtherType::ARP(arp_packet) = &frame.payload {
         if ArpOperation::REQUEST == arp_packet.oper {
             if ProtocolAddress::IPv4(MY_IP_BYTES.into()) == arp_packet.tpa {
@@ -173,5 +174,4 @@ pub fn update(frame: &[u8]) -> () {
             }
         }
     }
-    println!("{:#x?}", frame);
 }
