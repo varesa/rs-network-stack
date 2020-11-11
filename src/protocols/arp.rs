@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt};
-use crate::net::*;
+use crate::protocols::{HardwareAddress,ProtocolAddress};
 
 #[derive(Debug)]
 pub struct ArpPacket<'a> {
@@ -38,6 +38,7 @@ impl<'a> From <&'a [u8]> for ArpPacket<'a> {
         let (spa_bytes, rest) = rest.split_at(plen_bytes[0] as usize);
         let (tha_bytes, rest) = rest.split_at(hlen_bytes[0] as usize);
         let (tpa_bytes, rest) = rest.split_at(plen_bytes[0] as usize);
+        assert_eq!(rest.len(), 0);
 
         ArpPacket {
             htype: htype_bytes.clone().read_u16::<BigEndian>().unwrap(),
