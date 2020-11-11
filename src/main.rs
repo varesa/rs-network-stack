@@ -31,13 +31,11 @@ fn main() {
     let iface = tap::setup(&args.bridge_name);
 
     const MTU: usize = 1500;
-    const TAP_HEADER: usize = 4;
 
-    let mut buffer = [0 as u8; MTU + TAP_HEADER];
+    let mut rx_buffer = [0 as u8; MTU];
 
     loop { 
-        //thread::sleep(time::Duration::from_millis(100));
-        let size = iface.recv(&mut buffer).unwrap();
-        net::update(&buffer[TAP_HEADER .. TAP_HEADER+size]);
+        let size = iface.recv(&mut rx_buffer).unwrap();
+        net::update(&rx_buffer[..size]);
     }
 }

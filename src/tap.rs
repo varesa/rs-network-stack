@@ -17,7 +17,7 @@ fn set_if_up(interface: &Iface) -> Result<(), Error> {
 }
 
 fn new_interface() -> Result<Iface, std::io::Error> {
-    Iface::new("rs-test-if", tun_tap::Mode::Tap)
+    Iface::without_packet_info("rs-test-if", tun_tap::Mode::Tap)
 }
 
 pub fn setup(bridge_name: &str) -> Iface {
