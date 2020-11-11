@@ -3,53 +3,13 @@ use std::convert::TryInto;
 use std::fmt;
 use crate::protocols::arp::*;
 
-#[derive(Debug)]
-pub struct UnknownEtherTypePayload<'a> {
-    ethertype: u16,
-    payload: &'a [u8],
-}
-
-#[derive(Debug)]
-pub enum EtherType<'a> {
-    ARP(ArpPacket<'a>),
-    IPv4,
-    IPv6,
-    Unknown(UnknownEtherTypePayload<'a>),
-    Uninitialized(&'a [u8]),
-}
-
-// Custom fmt::Debug
-#[derive(PartialEq)]
-pub struct MacAddress<'a> {
-    mac: &'a [u8; 6],
-}
-
-
-impl<'a> From<&'a [u8]> for MacAddress<'a> {
-    fn from(slice: &'a [u8]) -> MacAddress {
-        MacAddress { mac: slice.try_into().unwrap() }
-    }
-}
-
-impl fmt::Debug for MacAddress<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
-            self.mac[0], self.mac[1], self.mac[2],
-            self.mac[3], self.mac[4], self.mac[5]
-        ))
-    }
-}
+// Ethernet frame
 
 #[derive(Debug)]
 pub struct EthernetFrame<'a> {
     source_mac: MacAddress<'a>,
     destination_mac: MacAddress<'a>,
     payload: EtherType<'a>,
-}
-
-fn ethertype_slice_to_u16 (ethertype: &[u8]) -> u16 {
-    ethertype.clone().read_u16::<BigEndian>().unwrap()
 }
 
 impl EthernetFrame<'_> {
@@ -74,5 +34,47 @@ impl EthernetFrame<'_> {
 
     pub fn payload(self: &Self) -> &EtherType {
         &self.payload
+    }
+}
+
+fn ethertype_slice_to_u16 (ethertype: &[u8]) -> u16 {
+    ethertype.clone().read_u16::<BigEndian>().unwrap()
+}
+
+#[derive(Debug)]
+pub enum EtherType<'a> {
+    ARP(ArpPacket<'a>),
+    IPv4,
+    IPv6,
+    Unknown(UnknownEtherTypePayload<'a>),
+    Uninitialized(&'a [u8]),
+}
+
+#[derive(Debug)]
+pub struct UnknownEtherTypePayload<'a> {
+    ethertype: u16,
+    payload: &'a [u8],
+}
+
+// MAC address
+
+#[derive(PartialEq)]
+pub struct MacAddress<'a> {
+    mac: &'a [u8; 6],
+}
+
+impl<'a> From<&'a [u8]> for MacAddress<'a> {
+    fn from(slice: &'a [u8]) -> MacAddress {
+        MacAddress { mac: slice.try_into().unwrap() }
+    }
+}
+
+impl fmt::Debug for MacAddress<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+            self.mac[0], self.mac[1], self.mac[2],
+            self.mac[3], self.mac[4], self.mac[5]
+        ))
     }
 }
