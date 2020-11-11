@@ -1,6 +1,7 @@
 mod error;
 mod tap;
 mod net;
+pub mod protocols;
 
 use std::{env};
 
