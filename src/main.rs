@@ -33,9 +33,15 @@ fn main() {
     const MTU: usize = 1500;
 
     let mut rx_buffer = [0 as u8; MTU];
+    let mut tx_buffer = [0 as u8; MTU];
 
-    loop { 
+
+    let send = |tx_buffer: &[u8], len: usize| {
+        iface.send(&tx_buffer[..len]);
+    };
+
+    loop {
         let size = iface.recv(&mut rx_buffer).unwrap();
-        net::update(&rx_buffer[..size]);
+        net::update(&rx_buffer[..size], &mut tx_buffer, send);
     }
 }

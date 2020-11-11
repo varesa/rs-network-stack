@@ -86,6 +86,7 @@ enum EtherType<'a> {
     IPv4,
     IPv6,
     Unknown(UnknownEtherTypePayload<'a>),
+    Uninitialized(&'a [u8]),
 }
 
 // Custom fmt::Debug
@@ -163,9 +164,12 @@ impl EthernetFrame<'_> {
     }
 }
 
-pub fn update(frame: &[u8]) -> () {
-    println!("Received {} bytes", frame.len());
-    let frame = EthernetFrame::from_slice(frame);
+pub fn update<F>(rx_buffer: &[u8], tx_buffer: &mut [u8], send: F) -> ()
+where
+    F: FnMut(&[u8], usize) -> (),
+{
+    println!("Received {} bytes", rx_buffer.len());
+    let frame = EthernetFrame::from_slice(rx_buffer);
     println!("{:#x?}", &frame);
     if let EtherType::ARP(arp_packet) = &frame.payload {
         if ArpOperation::REQUEST == arp_packet.oper {
