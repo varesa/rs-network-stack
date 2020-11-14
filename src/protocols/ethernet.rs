@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{NetworkEndian, ReadBytesExt};
 use std::convert::TryInto;
 use std::fmt;
 use std::mem::take;
@@ -14,6 +14,7 @@ pub struct EthernetFrame<'a> {
 }
 
 impl EthernetFrame<'_> {
+
     fn generate_payload(ethertype: u16, bytes: &mut [u8]) -> EtherType{
         match ethertype {
             0x0800 => EtherType::IPv4,
@@ -23,10 +24,21 @@ impl EthernetFrame<'_> {
         }
     }
 
-    pub fn from_slice(frame: &mut [u8]) -> EthernetFrame {
+    fn split_buffer(frame: &mut [u8]) -> [&mut[u8]; 4] {
         let (destination_mac_bytes, rest) = frame.split_at_mut(6);
         let (source_mac_bytes, rest) = rest.split_at_mut(6);
         let (ethertype_bytes, payload_bytes) = rest.split_at_mut(2);
+
+        [destination_mac_bytes, source_mac_bytes, ethertype_bytes, payload_bytes]
+    }
+
+    pub fn from_slice(frame: &mut [u8]) -> EthernetFrame {
+        let [
+            destination_mac_bytes,
+            source_mac_bytes,
+            ethertype_bytes,
+            payload_bytes
+        ] = EthernetFrame::split_buffer(frame);
 
         let ethertype = ethertype_slice_to_u16(ethertype_bytes);
 
@@ -52,7 +64,7 @@ impl EthernetFrame<'_> {
 }
 
 fn ethertype_slice_to_u16 (ethertype: &[u8]) -> u16 {
-    ethertype.clone().read_u16::<BigEndian>().unwrap()
+    ethertype.clone().read_u16::<NetworkEndian>().unwrap()
 }
 
 #[derive(Debug)]
