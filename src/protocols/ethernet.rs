@@ -55,10 +55,25 @@ impl EthernetFrame<'_> {
 
     pub fn set_ethertype(&mut self, ethertype: u16) {
         let old_payload = take(&mut self.payload);
-        if let EtherType::Unknown(payload) = old_payload {
-            self.payload = EthernetFrame::generate_payload(ethertype, payload.bytes);
+        if let EtherType::Uninitialized(payload_bytes) = old_payload {
+            self.payload = EthernetFrame::generate_payload(ethertype, payload_bytes);
         } else {
             panic!("Unable to change existing ethertype");
+        }
+    }
+
+    pub fn uninitialized(frame: &mut [u8]) -> EthernetFrame {
+        let [
+        destination_mac_bytes,
+        source_mac_bytes,
+        _ethertype_bytes,
+        payload_bytes
+        ] = EthernetFrame::split_buffer(frame);
+
+        EthernetFrame {
+            source_mac: source_mac_bytes.into(),
+            destination_mac: destination_mac_bytes.into(),
+            payload: EtherType::Uninitialized(payload_bytes),
         }
     }
 }
@@ -73,6 +88,7 @@ pub enum EtherType<'a> {
     IPv4,
     IPv6,
     Unknown(UnknownEtherTypePayload<'a>),
+    Uninitialized(&'a mut [u8]),
     None,
 }
 
