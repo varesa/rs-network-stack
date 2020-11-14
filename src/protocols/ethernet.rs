@@ -1,4 +1,4 @@
-use byteorder::{NetworkEndian, ReadBytesExt};
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use std::convert::TryInto;
 use std::fmt;
 use std::mem::take;
@@ -10,6 +10,7 @@ use crate::protocols::arp::*;
 pub struct EthernetFrame<'a> {
     source_mac: MacAddress<'a>,
     destination_mac: MacAddress<'a>,
+    ethertype_bytes: &'a mut [u8],
     payload: Payload<'a>,
 }
 
@@ -45,6 +46,7 @@ impl<'a> EthernetFrame<'a> {
         EthernetFrame {
             source_mac: source_mac_bytes.into(),
             destination_mac: destination_mac_bytes.into(),
+            ethertype_bytes,
             payload: EthernetFrame::generate_payload(ethertype, payload_bytes),
         }
     }
@@ -53,13 +55,14 @@ impl<'a> EthernetFrame<'a> {
         let [
         destination_mac_bytes,
         source_mac_bytes,
-        _ethertype_bytes,
+        ethertype_bytes,
         payload_bytes
         ] = EthernetFrame::split_buffer(frame);
 
         EthernetFrame {
             source_mac: source_mac_bytes.into(),
             destination_mac: destination_mac_bytes.into(),
+            ethertype_bytes,
             payload: Payload::Uninitialized(payload_bytes),
         }
     }
@@ -80,6 +83,7 @@ impl<'a> EthernetFrame<'a> {
         let old_payload = take(&mut self.payload);
         if let Payload::Uninitialized(payload_bytes) = old_payload {
             self.payload = EthernetFrame::generate_payload(ethertype, payload_bytes);
+            self.ethertype_bytes.write_u16::<NetworkEndian>(ethertype);
         } else {
             panic!("Unable to change existing ethertype");
         }

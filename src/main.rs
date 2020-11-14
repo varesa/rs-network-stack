@@ -39,7 +39,8 @@ fn main() {
 
     let send = |tx_buffer: &[u8], len: usize| {
         println!("Sending {} bytes", len);
-        iface.send(&tx_buffer[..len]);
+        let sent = iface.send(&tx_buffer[..len]);
+        println!("Sent: {}", sent.unwrap());
     };
 
     loop {
