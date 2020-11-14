@@ -16,10 +16,10 @@ pub struct EthernetFrame<'a> {
 impl<'a> EthernetFrame<'a> {
 
     fn generate_payload(ethertype: u16, bytes: &mut [u8]) -> Payload{
-        match ethertype {
-            0x0800 => Payload::IPv4,
-            0x0806 => Payload::ARP(bytes.into()),
-            0x86DD => Payload::IPv6,
+        match EtherType::from_u16(ethertype) {
+            EtherType::IPv4 => Payload::IPv4,
+            EtherType::ARP => Payload::ARP(bytes.into()),
+            EtherType::IPv6 => Payload::IPv6,
             _ => Payload::Unknown(UnknownPayload { ethertype, bytes }),
         }
     }
@@ -64,8 +64,8 @@ impl<'a> EthernetFrame<'a> {
         }
     }
 
-    pub fn payload(&self) -> &Payload {
-        &self.payload
+    pub fn payload(&mut self) -> &mut Payload<'a> {
+        &mut self.payload
     }
 
     pub fn source_mac(&mut self) -> &mut MacAddress<'a> {
@@ -83,6 +83,30 @@ impl<'a> EthernetFrame<'a> {
         } else {
             panic!("Unable to change existing ethertype");
         }
+    }
+}
+
+pub enum EtherType {
+    IPv4 = 0x0800,
+    ARP = 0x0806,
+    IPv6 = 0x86DD,
+    Unknown,
+}
+
+impl EtherType {
+    fn from_u16(value: u16) -> Self {
+        match value {
+            0x0800 => EtherType::IPv4,
+            0x0806 => EtherType::ARP,
+            0x86DD => EtherType::IPv6,
+            _      => EtherType::Unknown,
+        }
+    }
+}
+
+impl Into<u16> for EtherType {
+    fn into(self) -> u16 {
+        self as u16
     }
 }
 

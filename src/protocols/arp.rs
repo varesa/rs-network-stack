@@ -3,11 +3,11 @@ use crate::protocols::{HardwareAddress,ProtocolAddress};
 
 #[derive(Debug)]
 pub struct ArpPacket<'a> {
+    header: &'a mut [u8],
     htype: u16,
     ptype: u16,
     hlen: u8,
     plen: u8,
-    oper: ArpOperation,
     sha: HardwareAddress<'a>,
     spa: ProtocolAddress<'a>,
     tha: HardwareAddress<'a>,
@@ -23,32 +23,25 @@ pub enum ArpOperation {
 
 impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
     fn from(frame: &'a mut [u8]) -> ArpPacket {
-        let (htype_bytes, rest) = frame.split_at_mut(2);
-        // Support only ethernet
-        assert_eq!(htype_bytes, [0x00, 0x01]);
-        let (ptype_bytes, rest) = rest.split_at_mut(2);
-        // Support only IPv4
-        assert_eq!(ptype_bytes, [0x08, 0x00]);
-        let (hlen_bytes, rest) = rest.split_at_mut(1);
-        assert_eq!(hlen_bytes[0], 6); // MAC -> 6 octets
-        let (plen_bytes, rest) = rest.split_at_mut(1);
-        assert_eq!(plen_bytes[0], 4); // IPv4 -> 4 octets
-        let (oper_bytes, rest) = rest.split_at_mut(2);
-        let (sha_bytes, rest) = rest.split_at_mut(hlen_bytes[0] as usize);
-        let (spa_bytes, rest) = rest.split_at_mut(plen_bytes[0] as usize);
-        let (tha_bytes, rest) = rest.split_at_mut(hlen_bytes[0] as usize);
-        let (tpa_bytes, rest) = rest.split_at_mut(plen_bytes[0] as usize);
-        assert_eq!(rest.len(), 0);
+        let (header, rest) = frame.split_at_mut(8);
+
+        let htype = header[0..2].as_ref().clone().read_u16::<BigEndian>().unwrap();
+        let ptype = header[2..4].as_ref().clone().read_u16::<BigEndian>().unwrap();
+        let hlen = header[4];
+        let plen = header[5];
+
+        let (sha_bytes, rest) = rest.split_at_mut(6);
+        let (spa_bytes, rest) = rest.split_at_mut(4);
+        let (tha_bytes, rest) = rest.split_at_mut(6);
+        let (tpa_bytes, rest) = rest.split_at_mut(4);
+        //assert_eq!(rest.len(), 0);
 
         ArpPacket {
-            htype: htype_bytes.as_ref().clone().read_u16::<BigEndian>().unwrap(),
-            ptype: ptype_bytes.as_ref().clone().read_u16::<BigEndian>().unwrap(),
-            hlen: hlen_bytes[0], plen: plen_bytes[0],
-            oper: match oper_bytes {
-                [0, 1] => ArpOperation::REQUEST,
-                [0, 2] => ArpOperation::REPLY,
-                _ => ArpOperation::INVALID,
-            },
+            header,
+            htype,
+            ptype,
+            hlen,
+            plen,
             sha: HardwareAddress::MAC(sha_bytes.into()),
             spa: ProtocolAddress::IPv4(spa_bytes.into()),
             tha: HardwareAddress::MAC(tha_bytes.into()),
@@ -58,19 +51,45 @@ impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
 }
 
 impl<'a> ArpPacket<'a> {
-    pub fn oper(self: &Self) -> ArpOperation {
-        self.oper
+    pub fn set_header_ethernet_ipv4(&mut self) {
+        // Htype
+        self.header[0] = 0;
+        self.header[1] = 1;
+        // Ptype
+        self.header[2] = 8;
+        self.header[3] = 0;
+        // Hlen
+        self.header[4] = 6;
+        // Plen
+        self.header[5] = 4;
     }
-    pub fn sha(self: &Self) -> &HardwareAddress {
-        &self.sha
+
+    pub fn oper(&self) -> ArpOperation {
+        match self.header[6..8] {
+            [0, 1] => ArpOperation::REQUEST,
+            [0, 2] => ArpOperation::REPLY,
+            _ => ArpOperation::INVALID,
+        }
     }
-    pub fn tha(self: &Self) -> &HardwareAddress {
-        &self.tha
+
+    pub fn set_oper(&mut self, oper: ArpOperation) {
+        match oper {
+            ArpOperation::REQUEST => { self.header[6] = 0; self.header[7] = 1; },
+            ArpOperation::REPLY => { self.header[6] = 0; self.header[7] = 2; },
+            ArpOperation::INVALID => { self.header[6] = 0; self.header[7] = 0; },
+        }
     }
-    pub fn spa(self: &Self) -> &ProtocolAddress {
-        &self.spa
+
+    pub fn sha(&mut self) -> &mut HardwareAddress<'a> {
+        &mut self.sha
     }
-    pub fn tpa(self: &Self) -> &ProtocolAddress {
-        &self.tpa
+    pub fn tha(&mut self) -> &mut HardwareAddress<'a> {
+        &mut self.tha
+    }
+    pub fn spa(&mut self) -> &mut ProtocolAddress<'a> {
+        &mut self.spa
+    }
+    pub fn tpa(&mut self) -> &mut ProtocolAddress<'a> {
+        &mut self.tpa
     }
 }

@@ -13,6 +13,16 @@ impl<'a> From<&'a mut [u8]> for Ipv4Address<'a> {
     }
 }
 
+impl<'a> Ipv4Address<'a> {
+    pub fn get_address(&self) -> [u8; 4] {
+        *self.ip
+    }
+
+    pub fn set_address(&mut self, new_address: &[u8; 4]) {
+        self.ip.copy_from_slice(new_address);
+    }
+}
+
 impl fmt::Debug for Ipv4Address<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
