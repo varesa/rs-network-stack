@@ -5,13 +5,16 @@ use crate::protocols::*;
 use crate::protocols::arp::*;
 use crate::protocols::ethernet::{EthernetFrame, EtherType};
 
-const MY_MAC_BYTES: &[u8] = &[0x02, 0xDE, 0xAD, 0x00, 0xBE, 0xEF];
-const MY_IP_BYTES: &[u8] = &[169, 254, 0, 2];
+//const MY_MAC_BYTES: &[u8] = &[];
+//const MY_IP_BYTES: &[u8] = &[169, 254, 0, 2];
 
-pub fn update<F>(rx_buffer: &[u8], tx_buffer: &mut [u8], send: F) -> ()
+pub fn update<F>(rx_buffer: &mut [u8], tx_buffer: &mut [u8], send: F) -> ()
 where
     F: FnMut(&[u8], usize) -> (),
 {
+    let MY_MAC_BYTES: &mut [u8] = &mut [0x02, 0xDE, 0xAD, 0x00, 0xBE, 0xEF];
+    let MY_IP_BYTES: &mut [u8] = &mut [169, 254, 0, 2];
+
     println!("Received {} bytes", rx_buffer.len());
     let frame = EthernetFrame::from_slice(rx_buffer);
     println!("{:#x?}", &frame);

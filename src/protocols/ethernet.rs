@@ -13,10 +13,10 @@ pub struct EthernetFrame<'a> {
 }
 
 impl EthernetFrame<'_> {
-    pub fn from_slice(frame: &[u8]) -> EthernetFrame {
-        let (destination_mac_bytes, rest) = frame.split_at(6);
-        let (source_mac_bytes, rest) = rest.split_at(6);
-        let (ethertype_bytes, payload) = rest.split_at(2);
+    pub fn from_slice(frame: &mut [u8]) -> EthernetFrame {
+        let (destination_mac_bytes, rest) = frame.split_at_mut(6);
+        let (source_mac_bytes, rest) = rest.split_at_mut(6);
+        let (ethertype_bytes, payload) = rest.split_at_mut(2);
 
         let ethertype = ethertype_slice_to_u16(ethertype_bytes);
 
@@ -47,24 +47,24 @@ pub enum EtherType<'a> {
     IPv4,
     IPv6,
     Unknown(UnknownEtherTypePayload<'a>),
-    Uninitialized(&'a [u8]),
+    Uninitialized(&'a mut [u8]),
 }
 
 #[derive(Debug)]
 pub struct UnknownEtherTypePayload<'a> {
     ethertype: u16,
-    payload: &'a [u8],
+    payload: &'a mut [u8],
 }
 
 // MAC address
 
 #[derive(PartialEq)]
 pub struct MacAddress<'a> {
-    mac: &'a [u8; 6],
+    mac: &'a mut [u8; 6],
 }
 
-impl<'a> From<&'a [u8]> for MacAddress<'a> {
-    fn from(slice: &'a [u8]) -> MacAddress {
+impl<'a> From<&'a mut [u8]> for MacAddress<'a> {
+    fn from(slice: &'a mut [u8]) -> MacAddress {
         MacAddress { mac: slice.try_into().unwrap() }
     }
 }

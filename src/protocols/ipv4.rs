@@ -4,11 +4,11 @@ use std::fmt;
 // Custom fmt::Debug
 #[derive(PartialEq)]
 pub struct Ipv4Address<'a> {
-    ip: &'a [u8; 4],
+    ip: &'a mut [u8; 4],
 }
 
-impl<'a> From<&'a [u8]> for Ipv4Address<'a> {
-    fn from(slice: &'a [u8]) -> Ipv4Address {
+impl<'a> From<&'a mut [u8]> for Ipv4Address<'a> {
+    fn from(slice: &'a mut [u8]) -> Ipv4Address {
         Ipv4Address { ip: slice.try_into().unwrap() }
     }
 }

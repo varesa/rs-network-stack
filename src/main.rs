@@ -43,6 +43,6 @@ fn main() {
 
     loop {
         let size = iface.recv(&mut rx_buffer).unwrap();
-        net::update(&rx_buffer[..size], &mut tx_buffer, send);
+        net::update(&mut rx_buffer[..size], &mut tx_buffer, send);
     }
 }
