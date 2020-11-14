@@ -18,10 +18,19 @@ where
     println!("Received {} bytes", rx_buffer.len());
     let frame = EthernetFrame::from_slice(rx_buffer);
     println!("{:#x?}", &frame);
-    if let EtherType::ARP(arp_packet) = &frame.payload() {
-        if ArpOperation::REQUEST == arp_packet.oper() {
-            if &ProtocolAddress::IPv4(my_ip_bytes.into()) == arp_packet.tpa() {
+    if let EtherType::ARP(arp_request) = &frame.payload() {
+        if ArpOperation::REQUEST == arp_request.oper() {
+            if &ProtocolAddress::IPv4(my_ip_bytes.into()) == arp_request.tpa() {
                 println!("Hey, it's us!");
+
+                let mut arp_reply = EthernetFrame::uninitialized(tx_buffer);
+                let HardwareAddress::MAC(sha) = arp_request.sha();
+                let HardwareAddress::MAC(tha) = arp_request.tha();
+
+                arp_reply.destination_mac().set_address(&sha.get_address());
+                arp_reply.source_mac().set_address(&tha.get_address());
+
+                println!("{:?}", arp_reply.destination_mac());
             }
         }
     }

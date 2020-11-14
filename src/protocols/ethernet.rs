@@ -13,7 +13,7 @@ pub struct EthernetFrame<'a> {
     payload: EtherType<'a>,
 }
 
-impl EthernetFrame<'_> {
+impl<'a> EthernetFrame<'a> {
 
     fn generate_payload(ethertype: u16, bytes: &mut [u8]) -> EtherType{
         match ethertype {
@@ -49,19 +49,6 @@ impl EthernetFrame<'_> {
         }
     }
 
-    pub fn payload(self: &Self) -> &EtherType {
-        &self.payload
-    }
-
-    pub fn set_ethertype(&mut self, ethertype: u16) {
-        let old_payload = take(&mut self.payload);
-        if let EtherType::Uninitialized(payload_bytes) = old_payload {
-            self.payload = EthernetFrame::generate_payload(ethertype, payload_bytes);
-        } else {
-            panic!("Unable to change existing ethertype");
-        }
-    }
-
     pub fn uninitialized(frame: &mut [u8]) -> EthernetFrame {
         let [
         destination_mac_bytes,
@@ -74,6 +61,27 @@ impl EthernetFrame<'_> {
             source_mac: source_mac_bytes.into(),
             destination_mac: destination_mac_bytes.into(),
             payload: EtherType::Uninitialized(payload_bytes),
+        }
+    }
+
+    pub fn payload(&self) -> &EtherType {
+        &self.payload
+    }
+
+    pub fn source_mac(&mut self) -> &mut MacAddress<'a> {
+        &mut self.source_mac
+    }
+
+    pub fn destination_mac(&mut self) -> &mut MacAddress<'a> {
+        &mut self.destination_mac
+    }
+
+    pub fn set_ethertype(&mut self, ethertype: u16) {
+        let old_payload = take(&mut self.payload);
+        if let EtherType::Uninitialized(payload_bytes) = old_payload {
+            self.payload = EthernetFrame::generate_payload(ethertype, payload_bytes);
+        } else {
+            panic!("Unable to change existing ethertype");
         }
     }
 }
@@ -115,6 +123,16 @@ pub struct MacAddress<'a> {
 impl<'a> From<&'a mut [u8]> for MacAddress<'a> {
     fn from(slice: &'a mut [u8]) -> MacAddress {
         MacAddress { mac: slice.try_into().unwrap() }
+    }
+}
+
+impl<'a> MacAddress<'a> {
+    pub fn get_address(&self) -> [u8; 6] {
+        *self.mac
+    }
+
+    pub fn set_address(&mut self, new_address: &[u8; 6]) {
+        self.mac.copy_from_slice(new_address);
     }
 }
 

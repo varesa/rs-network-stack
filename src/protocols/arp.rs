@@ -61,6 +61,15 @@ impl<'a> ArpPacket<'a> {
     pub fn oper(self: &Self) -> ArpOperation {
         self.oper
     }
+    pub fn sha(self: &Self) -> &HardwareAddress {
+        &self.sha
+    }
+    pub fn tha(self: &Self) -> &HardwareAddress {
+        &self.tha
+    }
+    pub fn spa(self: &Self) -> &ProtocolAddress {
+        &self.spa
+    }
     pub fn tpa(self: &Self) -> &ProtocolAddress {
         &self.tpa
     }
