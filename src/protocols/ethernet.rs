@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use std::convert::TryInto;
 use std::fmt;
+use std::mem::take;
 use crate::protocols::arp::*;
 
 // Ethernet frame
@@ -13,27 +14,40 @@ pub struct EthernetFrame<'a> {
 }
 
 impl EthernetFrame<'_> {
+    fn generate_payload(ethertype: u16, bytes: &mut [u8]) -> EtherType{
+        match ethertype {
+            0x0800 => EtherType::IPv4,
+            0x0806 => EtherType::ARP(bytes.into()),
+            0x86DD => EtherType::IPv6,
+            _ => EtherType::Unknown(UnknownEtherTypePayload { ethertype, bytes }),
+        }
+    }
+
     pub fn from_slice(frame: &mut [u8]) -> EthernetFrame {
         let (destination_mac_bytes, rest) = frame.split_at_mut(6);
         let (source_mac_bytes, rest) = rest.split_at_mut(6);
-        let (ethertype_bytes, payload) = rest.split_at_mut(2);
+        let (ethertype_bytes, payload_bytes) = rest.split_at_mut(2);
 
         let ethertype = ethertype_slice_to_u16(ethertype_bytes);
 
         EthernetFrame {
             source_mac: source_mac_bytes.into(),
             destination_mac: destination_mac_bytes.into(),
-            payload: match ethertype {
-                0x0800 => EtherType::IPv4,
-                0x0806 => EtherType::ARP(payload.into()),
-                0x86DD => EtherType::IPv6,
-                _ => EtherType::Unknown(UnknownEtherTypePayload { ethertype, payload }),
-            },
+            payload: EthernetFrame::generate_payload(ethertype, payload_bytes),
         }
     }
 
     pub fn payload(self: &Self) -> &EtherType {
         &self.payload
+    }
+
+    pub fn set_ethertype(&mut self, ethertype: u16) {
+        let old_payload = take(&mut self.payload);
+        if let EtherType::Unknown(payload) = old_payload {
+            self.payload = EthernetFrame::generate_payload(ethertype, payload.bytes);
+        } else {
+            panic!("Unable to change existing ethertype");
+        }
     }
 }
 
@@ -47,13 +61,20 @@ pub enum EtherType<'a> {
     IPv4,
     IPv6,
     Unknown(UnknownEtherTypePayload<'a>),
-    Uninitialized(&'a mut [u8]),
+    None,
 }
+
+impl Default for EtherType<'_> {
+    fn default() -> Self {
+        EtherType::None
+    }
+}
+
 
 #[derive(Debug)]
 pub struct UnknownEtherTypePayload<'a> {
     ethertype: u16,
-    payload: &'a mut [u8],
+    bytes: &'a mut [u8],
 }
 
 // MAC address
