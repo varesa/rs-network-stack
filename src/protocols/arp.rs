@@ -23,6 +23,7 @@ pub enum ArpOperation {
 
 impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
     fn from(frame: &'a mut [u8]) -> ArpPacket {
+
         let (header, rest) = frame.split_at_mut(8);
 
         let htype = header[0..2].as_ref().clone().read_u16::<BigEndian>().unwrap();
@@ -30,11 +31,18 @@ impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
         let hlen = header[4];
         let plen = header[5];
 
-        let (sha_bytes, rest) = rest.split_at_mut(6);
-        let (spa_bytes, rest) = rest.split_at_mut(4);
-        let (tha_bytes, rest) = rest.split_at_mut(6);
-        let (tpa_bytes, rest) = rest.split_at_mut(4);
-        //assert_eq!(rest.len(), 0);
+        // Support only ethernet
+        assert_eq!(htype, 0x0001);
+        assert_eq!(hlen, 6); // MAC -> 6 octets
+        // Support only IPv4
+        assert_eq!(ptype, 0x0800);
+        assert_eq!(plen, 4); // IPv4 -> 4 octets
+
+        let (sha_bytes, rest) = rest.split_at_mut(hlen as usize);
+        let (spa_bytes, rest) = rest.split_at_mut(plen as usize);
+        let (tha_bytes, rest) = rest.split_at_mut(hlen as usize);
+        let (tpa_bytes, rest) = rest.split_at_mut(plen as usize);
+        assert_eq!(rest.len(), 0);
 
         ArpPacket {
             header,
@@ -50,7 +58,50 @@ impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
     }
 }
 
+
 impl<'a> ArpPacket<'a> {
+    pub fn new(
+        buffer: &'a mut [u8],
+        oper: ArpOperation,
+        param_sha: &HardwareAddress,
+        param_spa: &ProtocolAddress,
+        param_tha: &HardwareAddress,
+        param_tpa: &ProtocolAddress,
+
+    ) -> ArpPacket<'a> {
+        // Header: ethernet/ipv4
+        let header = [0, 1, 8, 0, 6, 4];
+        buffer[0..6].copy_from_slice(&header);
+
+        let oper_bytes = match oper {
+            ArpOperation::REQUEST => [0, 1],
+            ArpOperation::REPLY => [0, 2],
+            ArpOperation::INVALID => [0, 0],
+        };
+        buffer[6..8].copy_from_slice(&oper_bytes);
+
+        let mut arp_packet: ArpPacket = buffer.into();
+
+        let HardwareAddress::MAC(ref param_sha) = param_sha;
+        let HardwareAddress::MAC(ref param_tha) = param_tha;
+        let ProtocolAddress::IPv4(ref param_spa) = param_spa;
+        let ProtocolAddress::IPv4(ref param_tpa) = param_tpa;
+
+        let HardwareAddress::MAC(ref mut response_sha) = arp_packet.sha();
+        response_sha.set_address(&param_sha.get_address());
+
+        let ProtocolAddress::IPv4(ref mut response_spa) = arp_packet.spa();
+        response_spa.set_address(&param_spa.get_address());
+
+        let HardwareAddress::MAC(ref mut response_tha) = arp_packet.tha();
+        response_tha.set_address(&param_tha.get_address());
+
+        let ProtocolAddress::IPv4(ref mut response_tpa) = arp_packet.tpa();
+        response_tpa.set_address(&param_tpa.get_address());
+
+        arp_packet
+    }
+
     pub fn set_header_ethernet_ipv4(&mut self) {
         // Htype
         self.header[0] = 0;

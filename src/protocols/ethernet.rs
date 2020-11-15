@@ -79,14 +79,23 @@ impl<'a> EthernetFrame<'a> {
         &mut self.destination_mac
     }
 
-    pub fn set_ethertype(&mut self, ethertype: u16) {
+    pub fn take_payload_buffer(&mut self) -> &'a mut [u8] {
         let old_payload = take(&mut self.payload);
         if let Payload::Uninitialized(payload_bytes) = old_payload {
-            self.payload = EthernetFrame::generate_payload(ethertype, payload_bytes);
-            self.ethertype_bytes.write_u16::<NetworkEndian>(ethertype);
+            payload_bytes
         } else {
             panic!("Unable to change existing ethertype");
         }
+    }
+
+    pub fn set_payload(&mut self, payload: Payload<'a>) {
+        self.ethertype_bytes.write_u16::<NetworkEndian>(
+        match payload {
+            Payload::ARP(_) => EtherType::ARP as u16,
+            _               => 0xFFFF
+        }).expect("Error setting ethertype field in buffer");
+
+        self.payload = payload;
     }
 }
 
@@ -133,7 +142,6 @@ impl Default for Payload<'_> {
         Payload::None
     }
 }
-
 
 #[derive(Debug)]
 pub struct UnknownPayload<'a> {

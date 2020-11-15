@@ -10,8 +10,7 @@ pub enum HardwareAddress<'a> {
     MAC(MacAddress<'a>),
 }
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ProtocolAddress<'a> {
     IPv4(Ipv4Address<'a>),
 }
