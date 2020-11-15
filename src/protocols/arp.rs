@@ -69,6 +69,7 @@ impl<'a> ArpPacket<'a> {
         param_tpa: &ProtocolAddress,
 
     ) -> ArpPacket<'a> {
+        let (buffer, _excess) = buffer.split_at_mut(28);
         // Header: ethernet/ipv4
         let header = [0, 1, 8, 0, 6, 4];
         buffer[0..6].copy_from_slice(&header);
