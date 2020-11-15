@@ -1,8 +1,10 @@
 use std::convert::TryInto;
 use std::fmt;
-use byteorder::{NetworkEndian, ReadBytesExt};
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use std::fmt::{Formatter, Debug};
 use crate::protocols::icmp::IcmpPacket;
+use std::mem::take;
+use internet_checksum::Checksum;
 
 // Custom fmt::Debug
 #[derive(PartialEq)]
@@ -36,7 +38,7 @@ impl fmt::Debug for Ipv4Address<'_> {
 }
 
 #[derive(Debug)]
-enum IpProtocol {
+pub enum IpProtocol {
     ICMP = 0x01,
     TCP = 0x06,
     UDP = 0x11,
@@ -44,9 +46,17 @@ enum IpProtocol {
 }
 
 #[derive(Debug)]
-enum IpPayload<'a> {
+pub enum IpPayload<'a> {
     ICMP(IcmpPacket<'a>),
-    Unknown(&'a mut [u8])
+    Unknown(&'a mut [u8]),
+    Uninitialized(&'a mut [u8]),
+    None,
+}
+
+impl Default for IpPayload<'_> {
+    fn default() -> Self {
+        IpPayload::None
+    }
 }
 
 pub struct Ipv4Packet<'a> {
@@ -74,7 +84,56 @@ impl<'a> From <&'a mut [u8]> for Ipv4Packet<'a> {
 }
 
 impl<'a> Ipv4Packet<'a> {
+    pub fn new (
+        buffer: &'a mut [u8],
+        source_ip: &Ipv4Address,
+        destination_ip: &Ipv4Address,
+    ) -> Ipv4Packet<'a> {
+        // Zero out the header
+        for i in &mut buffer[0..20] { *i = 0; }
 
+        let ihl: usize = 5;
+        let (buf_header, buf_payload) = buffer.split_at_mut(4*ihl);
+
+        let mut ipv4_packet = Ipv4Packet {
+            header: buf_header.into(),
+            payload: IpPayload::Uninitialized(buf_payload),
+        };
+
+        ipv4_packet.header().set_version(4);
+        ipv4_packet.header().set_ihl(5);
+        ipv4_packet.header().set_time_to_live(64);
+        ipv4_packet.header().source_ip().set_address(&source_ip.get_address());
+        ipv4_packet.header().destination_ip().set_address(&destination_ip.get_address());
+
+        ipv4_packet
+    }
+
+    pub fn header(&mut self) -> &mut Ipv4Header<'a> {
+        &mut self.header
+    }
+
+    pub fn payload(&mut self) -> &mut  IpPayload<'a> {
+        &mut self.payload
+    }
+
+    pub fn take_payload_buffer(&mut self) -> &'a mut [u8] {
+        let old_payload = take(&mut self.payload);
+        if let IpPayload::Uninitialized(payload_bytes) = old_payload {
+            payload_bytes
+        } else {
+            panic!("Unable to change existing ethertype");
+        }
+    }
+
+    pub fn set_payload(&mut self, payload: IpPayload<'a>) {
+        self.header.set_protocol(match payload {
+            IpPayload::ICMP(_) => IpProtocol::ICMP as u8,
+            _ => 0xFF,
+        });
+
+        self.payload = payload;
+    }
 }
 
 impl<'a> std::fmt::Debug for Ipv4Packet<'a> {
@@ -95,7 +154,7 @@ impl<'a> std::fmt::Debug for Ipv4Packet<'a> {
     }
 }
 
-struct Ipv4Header<'a> {
+pub struct Ipv4Header<'a> {
     header: &'a mut [u8],
     source_ip: Ipv4Address<'a>,
     destination_ip:  Ipv4Address<'a>,
@@ -120,7 +179,6 @@ impl<'a> From<&'a mut [u8]> for Ipv4Header<'a> {
             assert_eq!(rest.len(), 0);
         }
 
-
         Ipv4Header {
             header: header,
             source_ip: source_ip_bytes.into(),
@@ -131,43 +189,72 @@ impl<'a> From<&'a mut [u8]> for Ipv4Header<'a> {
 }
 
 impl<'a> Ipv4Header<'a> {
-    fn version(&self) -> u8 {
+    pub fn source_ip(&mut self) -> &mut Ipv4Address<'a> {
+        &mut self.source_ip
+    }
+
+    pub fn destination_ip(&mut self) -> &mut Ipv4Address<'a> {
+        &mut self.destination_ip
+    }
+
+    pub fn version(&self) -> u8 {
         (self.header[0] & 0xF0) >> 4
     }
 
-    fn ihl(&self) -> u8 {
+    pub fn set_version(&mut self, version: u8) {
+        assert!(version <= 0x0F);
+        let new_version_shifted = version << 4;
+        let current = self.header[0];
+        self.header[0] = (current & 0x0F) | new_version_shifted;
+    }
+
+    pub fn ihl(&self) -> u8 {
         self.header[0] & 0x0F
     }
 
-    fn dscp(&self) -> u8 {
+    pub fn set_ihl(&mut self, ihl: u8) {
+        assert!(ihl <= 0x0F);
+        let current = self.header[0];
+        self.header[0] = (current & 0xF0) | ihl;
+    }
+
+    pub fn dscp(&self) -> u8 {
         (self.header[1] & 0b11111100) >> 6
     }
 
-    fn ecn(&self) -> u8 {
+    pub fn ecn(&self) -> u8 {
         self.header[1] & 0b00000011
     }
 
-    fn length(&self) -> u16 {
+    pub fn length(&self) -> u16 {
         self.header[2..4].as_ref().read_u16::<NetworkEndian>().unwrap()
     }
 
-    fn identification(&self) -> u16 {
+    pub fn set_length(&mut self, length: u16) {
+        self.header[2..4].as_mut().write_u16::<NetworkEndian>(length).unwrap();
+    }
+
+    pub fn identification(&self) -> u16 {
         self.header[4..6].as_ref().read_u16::<NetworkEndian>().unwrap()
     }
 
-    fn flags(&self) -> u8 {
+    pub fn flags(&self) -> u8 {
         (self.header[6] & 0b11100000) >> 5
     }
 
-    fn fragment_offset(&self) -> u16 {
+    pub fn fragment_offset(&self) -> u16 {
         self.header[6..8].as_ref().read_u16::<NetworkEndian>().unwrap() & 0x1FFF
     }
 
-    fn time_to_live(&self) -> u8 {
+    pub fn time_to_live(&self) -> u8 {
         self.header[8]
     }
 
-    fn protocol(&self) -> IpProtocol {
+    pub fn set_time_to_live(&mut self, ttl: u8) {
+        self.header[8] = ttl;
+    }
+
+    pub fn protocol(&self) -> IpProtocol {
         match self.header[9] {
             0x01 => IpProtocol::ICMP,
             0x06 => IpProtocol::TCP,
@@ -176,8 +263,21 @@ impl<'a> Ipv4Header<'a> {
         }
     }
 
-    fn checksum(&self) -> u16 {
+    pub fn set_protocol(&mut self, protocol: u8) {
+        self.header[9] = protocol;
+    }
+
+    pub fn checksum(&self) -> u16 {
         self.header[10..12].as_ref().read_u16::<NetworkEndian>().unwrap()
+    }
+
+    pub fn calculate_checksum(&mut self) {
+        let mut checksum = Checksum::new();
+        checksum.add_bytes(self.header);
+        checksum.add_bytes(&self.source_ip.get_address());
+        checksum.add_bytes(&self.destination_ip.get_address());
+        self.header[10..12].copy_from_slice(&checksum.checksum());
+        println!("IPv4 checksum set to: {:x}", self.checksum());
     }
 }
 

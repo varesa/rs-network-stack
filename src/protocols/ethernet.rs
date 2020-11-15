@@ -93,6 +93,7 @@ impl<'a> EthernetFrame<'a> {
         self.ethertype_bytes.write_u16::<NetworkEndian>(
         match payload {
             Payload::ARP(_) => EtherType::ARP as u16,
+            Payload::IPv4(_) => EtherType::IPv4 as u16,
             _               => 0xFFFF
         }).expect("Error setting ethertype field in buffer");
 

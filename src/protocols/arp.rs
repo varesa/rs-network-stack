@@ -95,19 +95,6 @@ impl<'a> ArpPacket<'a> {
         arp_packet
     }
 
-    pub fn set_header_ethernet_ipv4(&mut self) {
-        // Htype
-        self.header[0] = 0;
-        self.header[1] = 1;
-        // Ptype
-        self.header[2] = 8;
-        self.header[3] = 0;
-        // Hlen
-        self.header[4] = 6;
-        // Plen
-        self.header[5] = 4;
-    }
-
     pub fn oper(&self) -> ArpOperation {
         match self.header[6..8] {
             [0, 1] => ArpOperation::REQUEST,
