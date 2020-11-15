@@ -1,13 +1,9 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use crate::protocols::{HardwareAddress,ProtocolAddress};
+use std::fmt::Formatter;
 
-#[derive(Debug)]
 pub struct ArpPacket<'a> {
     header: &'a mut [u8],
-    htype: u16,
-    ptype: u16,
-    hlen: u8,
-    plen: u8,
     sha: HardwareAddress<'a>,
     spa: ProtocolAddress<'a>,
     tha: HardwareAddress<'a>,
@@ -46,10 +42,6 @@ impl<'a> From <&'a mut [u8]> for ArpPacket<'a> {
 
         ArpPacket {
             header,
-            htype,
-            ptype,
-            hlen,
-            plen,
             sha: HardwareAddress::MAC(sha_bytes.into()),
             spa: ProtocolAddress::IPv4(spa_bytes.into()),
             tha: HardwareAddress::MAC(tha_bytes.into()),
@@ -143,5 +135,35 @@ impl<'a> ArpPacket<'a> {
     }
     pub fn tpa(&mut self) -> &mut ProtocolAddress<'a> {
         &mut self.tpa
+    }
+
+    pub fn fmt_header(&self) -> (String, String, String) {
+
+        let hardware = match self.header[0..2] {
+            [0x00, 0x01] => String::from("Ethernet"),
+            _ => format!("Unknown hardware {:?}", &self.header[0..2]),
+        };
+        let protocol = match self.header[2..4] {
+            [0x08, 0x00] => String::from("IPv4"),
+            _ => format!("Unknown hardware {:?}", &self.header[2..4]),
+        };
+
+        (
+            format!("{:?}", self.oper()),
+            format!("{} ({} byte address)", hardware, self.header[4]),
+            format!("{} ({} byte address)", protocol, self.header[5]),
+        )
+    }
+}
+
+impl<'a> std::fmt::Debug for ArpPacket<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArpPacket")
+            .field("Header", &self.fmt_header())
+            .field("Sender hardware address", &self.sha)
+            .field("Sender protocol address", &self.spa)
+            .field("Target hardware address", &self.tha)
+            .field("Target protocol address", &self.tpa)
+            .finish()
     }
 }
