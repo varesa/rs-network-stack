@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::mem::take;
 use crate::protocols::arp::*;
+use crate::protocols::ipv4::Ipv4Packet;
 
 // Ethernet frame
 
@@ -18,7 +19,7 @@ impl<'a> EthernetFrame<'a> {
 
     fn generate_payload(ethertype: u16, bytes: &mut [u8]) -> Payload{
         match EtherType::from_u16(ethertype) {
-            EtherType::IPv4 => Payload::IPv4,
+            EtherType::IPv4 => Payload::IPv4(bytes.into()),
             EtherType::ARP => Payload::ARP(bytes.into()),
             EtherType::IPv6 => Payload::IPv6,
             _ => Payload::Unknown(UnknownPayload { ethertype, bytes }),
@@ -130,7 +131,7 @@ fn ethertype_slice_to_u16 (ethertype: &[u8]) -> u16 {
 #[derive(Debug)]
 pub enum Payload<'a> {
     ARP(ArpPacket<'a>),
-    IPv4,
+    IPv4(Ipv4Packet<'a>),
     IPv6,
     Unknown(UnknownPayload<'a>),
     Uninitialized(&'a mut [u8]),
